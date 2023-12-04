@@ -1,12 +1,16 @@
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: git-ko
+  name: clone-ko
   namespace: default
 spec:
   params:
-  - name: repo-url
+  - name: source-url
     type: string
+    description: "The url of git repo to clone."
+  - name: source-revision
+    type: string
+    description: "The url of git repo to clone."
   - name: ko-image
     description: ko image to use for builds
     default: "ghcr.io/ko-build/ko:latest"
@@ -42,7 +46,9 @@ spec:
     - name: gitInitImage
       value: m.daocloud.io/gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init:v0.40.2
     - name: url
-      value: $(params.repo-url)
+      value: $(params.source-url)
+    - name: revision
+      value: $(params.source-revision)
     workspaces:
     - name: output
       workspace: source
