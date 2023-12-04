@@ -1,0 +1,73 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: git-ko
+  namespace: default
+spec:
+  params:
+  - name: repo-url
+    type: string
+  - name: ko-image
+    description: ko image to use for builds
+    default: "ghcr.io/ko-build/ko:latest"
+  - name: main
+    description: import path of package main
+    default: "."
+  - name: ko-extra-args
+    description: additional arguments to ko build
+    type: array
+  - name: KO_DOCKER_REPO
+    description: ko environment variable which identifies where to push images
+    type: string
+  - name: KO_DEFAULTBASEIMAGE
+    description: base image for ko build
+    default: ""
+  workspaces:
+    - name: source
+    - name: dockerconfig
+  tasks:
+  - name: git-clone
+    taskRef:
+      resolver: hub
+      params:
+      - name: catalog # optional
+        value: tekton-catalog-tasks
+      - name: kind
+        value: task
+      - name: name
+        value: git-clone
+      - name: version
+        value: "0.9"
+    params:
+    - name: gitInitImage
+      value: m.daocloud.io/gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init:v0.40.2
+    - name: url
+      value: $(params.repo-url)
+    workspaces:
+    - name: output
+      workspace: source
+  - name: build
+    runAfter: ["git-clone"]
+    taskRef:
+      resolver: cluster
+      params:
+      - name: kind
+        value: task
+      - name: name
+        value: ko
+      - name: namespace
+        value: tekton-shared
+    params:
+    - name: ko-image
+      value: $(params.ko-image)
+    - name: main
+      value: $(params.main)
+    - name: extra-args
+      value: $(params.ko-extra-args[*])
+    - name: KO_DOCKER_REPO
+      value: $(params.KO_DOCKER_REPO)
+    - name: KO_DEFAULTBASEIMAGE
+      value: $(params.KO_DEFAULTBASEIMAGE)
+    workspaces:
+    - name: source
+    - name: dockerconfig

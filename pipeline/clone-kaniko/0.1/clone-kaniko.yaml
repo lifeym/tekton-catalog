@@ -1,0 +1,82 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: clone-kaniko
+  namespace: default
+spec:
+  params:
+  - name: source-url
+    type: string
+    description: "The url of git repo to clone."
+  - name: source-revision
+    type: string
+    description: "The revision of git repo to clone."
+  - name: image
+    type: string
+    description: "The name (reference) of the image to build."
+  - name: dockerfile
+    type: string
+    default: ./Dockerfile
+    description: "The path to the Dockerfile to execute (default: ./Dockerfile)"
+  - name: context
+    type: string
+    default: "./"
+    description: "The build context used by Kaniko (default: ./)"
+  - name: kaniko-extra-args
+    type : array
+    default: []
+    description: "Additional args to pass to the Kaniko executor."
+  workspaces:
+    - name: source
+    - name: dockerconfig
+  tasks:
+  - name: git-clone
+    taskRef:
+      name: git-clone
+      resolver: hub
+      params:
+      - name: catalog # optional
+        value: tekton-catalog-tasks
+      - name: kind
+        value: task
+      - name: name
+        value: git-clone
+      - name: version
+        value: "0.9"
+    params:
+    - name: gitInitImage
+      value: gcr.dockerproxy.com/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init:v0.40.2
+    - name: url
+      value: $(params.source-url)
+    - name: revision
+      value: $(params.source-revision)
+    workspaces:
+    - name: output
+      workspace: source
+  - name: build
+    runAfter: ["git-clone"]
+    taskRef:
+      resolver: hub
+      params:
+      - name: catalog # optional
+        value: tekton-catalog-tasks
+      - name: kind
+        value: task
+      - name: name
+        value: kaniko
+      - name: version
+        value: "0.6"
+    params:
+    - name: BUILDER_IMAGE
+      value: m.daocloud.io/gcr.io/kaniko-project/executor:v1.5.1
+    - name: IMAGE
+      value: $(params.image)
+    - name: DOCKERFILE
+      value: $(params.dockerfile)
+    - name: CONTEXT
+      value: $(params.context)
+    - name: EXTRA_ARGS
+      value: $(params.kaniko-extra-args[*])
+    workspaces:
+    - name: source
+    - name: dockerconfig
